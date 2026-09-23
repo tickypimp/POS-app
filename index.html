@@ -559,6 +559,38 @@
     max-width:320px;
   }
   #receiptPreviewOverlay .hint b{color:var(--accent);}
+
+  /* ---------- Summary tab: shareable "menu board" ---------- */
+  .menu-board{
+    background:#fffaf2;
+    color:#2a2320;
+    border-radius:18px;
+    padding:22px 20px 24px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  .mb-header{
+    text-align:center;
+    margin-bottom:16px;
+    padding-bottom:14px;
+    border-bottom:2px dashed #e2d5c0;
+  }
+  .mb-shop{font-size:20px; font-weight:800; letter-spacing:.3px;}
+  .mb-sub{font-size:12px; color:#a5906f; margin-top:4px; font-weight:600;}
+  .mb-cat{
+    font-size:11.5px; font-weight:800; letter-spacing:.8px; text-transform:uppercase;
+    color:#c98a3e; margin:18px 0 6px;
+  }
+  .mb-cat:first-child{margin-top:0;}
+  .mb-row{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:12px; padding:8px 0; border-bottom:1px dotted #ece1d1;
+  }
+  .mb-row:last-child{border-bottom:none;}
+  .mb-name{font-size:14.5px; font-weight:600; flex:1; line-height:1.4;}
+  .mb-stock{font-size:11px; color:#a99a82; font-weight:600; margin-top:2px;}
+  .mb-price{font-size:14.5px; font-weight:800; color:#b3672c; white-space:nowrap; padding-top:1px;}
+  .mb-empty{text-align:center; color:#a99a82; padding:34px 0; font-size:13px;}
+  .mb-footer{text-align:center; font-size:10.5px; color:#c2b39c; margin-top:16px; padding-top:12px; border-top:1px dashed #e2d5c0;}
 </style>
 </head>
 <body>
@@ -614,6 +646,19 @@
       <div class="section-title">รายการเมนูทั้งหมด</div>
       <div id="stockChipsManage" class="cat-chips"></div>
       <div id="manageList"></div>
+    </section>
+
+    <!-- ===== SUMMARY VIEW (shareable menu board) ===== -->
+    <section class="view" id="view-summary">
+      <div class="section-title">สรุปเมนูที่พร้อมขาย — แคปส่งลูกค้าได้เลย</div>
+      <div id="summaryBoard" class="menu-board">
+        <div class="mb-header">
+          <div class="mb-shop" id="mbShop">เมนูร้านค้า</div>
+          <div class="mb-sub">เมนูที่พร้อมขายวันนี้</div>
+        </div>
+        <div id="mbGroups"></div>
+        <div class="mb-footer">อัปเดตล่าสุด <span id="mbUpdated"></span></div>
+      </div>
     </section>
 
     <!-- ===== SETTINGS VIEW ===== -->
@@ -683,6 +728,7 @@
   <nav class="tabs">
     <button class="tab-btn active" data-view="sell"><span class="ic">🧾</span>ขายสินค้า</button>
     <button class="tab-btn" data-view="manage"><span class="ic">📋</span>จัดการเมนู</button>
+    <button class="tab-btn" data-view="summary"><span class="ic">📄</span>สรุปเมนู</button>
     <button class="tab-btn" data-view="settings"><span class="ic">⚙️</span>ตั้งค่า</button>
   </nav>
 
@@ -821,7 +867,7 @@
   }
 
   // ---------- Tabs ----------
-  const views = { sell: document.getElementById("view-sell"), manage: document.getElementById("view-manage"), settings: document.getElementById("view-settings") };
+  const views = { sell: document.getElementById("view-sell"), manage: document.getElementById("view-manage"), summary: document.getElementById("view-summary"), settings: document.getElementById("view-settings") };
   document.querySelectorAll(".tab-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
@@ -1048,6 +1094,41 @@
         }
       });
     });
+  }
+
+  // ---------- Render: summary board (shareable, screenshot-friendly) ----------
+  function renderSummaryBoard(){
+    const shopEl = document.getElementById("mbShop");
+    const updatedEl = document.getElementById("mbUpdated");
+    if(!shopEl || !updatedEl) return;
+    shopEl.textContent = (document.getElementById("shopNameInput").value || "").trim() || "เมนูร้านค้า";
+    updatedEl.textContent = new Date().toLocaleString("th-TH", { dateStyle:"medium", timeStyle:"short" });
+
+    const available = menu.filter(item => !(item.stock !== null && item.stock !== undefined && item.stock <= 0));
+    const wrap = document.getElementById("mbGroups");
+    if(available.length === 0){
+      wrap.innerHTML = '<div class="mb-empty">ยังไม่มีเมนูพร้อมขาย</div>';
+      return;
+    }
+    const groups = [...categories, ""];
+    let html = "";
+    groups.forEach(cat=>{
+      const items = available.filter(m => (m.category||"") === cat);
+      if(items.length === 0) return;
+      if(cat !== "" || categories.length > 0){
+        html += `<div class="mb-cat">${escapeHtml(cat === "" ? "อื่นๆ" : cat)}</div>`;
+      }
+      html += items.map(item=>{
+        const stockNote = (item.stock !== null && item.stock !== undefined)
+          ? `<div class="mb-stock">เหลือ ${item.stock}</div>`
+          : "";
+        return `<div class="mb-row">
+          <div class="mb-name">${escapeHtml(item.name)}${stockNote}</div>
+          <div class="mb-price">${baht(item.price)}</div>
+        </div>`;
+      }).join("");
+    });
+    wrap.innerHTML = html;
   }
 
   // ---------- Add menu ----------
@@ -1610,6 +1691,7 @@
     renderSellGrid();
     renderCatManageChips();
     renderManageList();
+    renderSummaryBoard();
     renderCart();
   }
 
