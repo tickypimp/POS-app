@@ -653,6 +653,10 @@
           <button class="btn btn-primary btn-sm" id="ghSaveBtn" style="flex:1;">⬆ บันทึกขึ้น GitHub</button>
           <button class="btn btn-outline btn-sm" id="ghLoadBtn" style="flex:1;">⬇ โหลดจาก GitHub</button>
         </div>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12.5px; color:var(--text-dim);">
+          <input type="checkbox" id="autoSyncToggle" style="width:auto;">
+          เปิดซิงก์อัตโนมัติ (บันทึกขึ้น GitHub ทุกครั้งที่แก้ไขเมนู และโหลดข้อมูลล่าสุดตอนเปิดแอป)
+        </label>
         <div class="status-line"><span class="dot" id="ghDot"></span><span id="ghStatus">ยังไม่เคยซิงก์</span></div>
       </div>
 
@@ -769,6 +773,8 @@
   const LS_GH_TOKEN = "pos_gh_token_v1";
   const LS_GH_GIST = "pos_gh_gist_v1";
   const LS_GH_SYNCED = "pos_gh_last_sync_v1";
+  const LS_LOCAL_UPDATED = "pos_local_updated_v1";
+  const LS_AUTOSYNC = "pos_autosync_v1";
 
   function normalizeMenu(rawMenu){
     return (rawMenu || []).map(m => ({
@@ -784,10 +790,32 @@
   let selectedCategory = "ALL";
   let editingId = null;
 
+  let suppressAutoSync = false;
+  let autoSyncTimer = null;
+  function scheduleAutoSync(){
+    if(suppressAutoSync) return;
+    const toggle = document.getElementById("autoSyncToggle");
+    if(!toggle || !toggle.checked) return;
+    const tokenEl = document.getElementById("ghToken");
+    if(!tokenEl || !tokenEl.value.trim()) return;
+    clearTimeout(autoSyncTimer);
+    autoSyncTimer = setTimeout(()=>{ if(typeof pushToGitHub === "function") pushToGitHub(); }, 2500);
+  }
+
   function uid(){ return "m" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
   function baht(n){ return "฿" + (Math.round(n*100)/100).toLocaleString("th-TH"); }
-  function saveMenu(){ localStorage.setItem(LS_MENU, JSON.stringify(menu)); renderAll(); }
-  function saveCategories(){ localStorage.setItem(LS_CATEGORIES, JSON.stringify(categories)); renderAll(); }
+  function saveMenu(){
+    localStorage.setItem(LS_MENU, JSON.stringify(menu));
+    localStorage.setItem(LS_LOCAL_UPDATED, new Date().toISOString());
+    renderAll();
+    scheduleAutoSync();
+  }
+  function saveCategories(){
+    localStorage.setItem(LS_CATEGORIES, JSON.stringify(categories));
+    localStorage.setItem(LS_LOCAL_UPDATED, new Date().toISOString());
+    renderAll();
+    scheduleAutoSync();
+  }
 
   // ---------- Tabs ----------
   const views = { sell: document.getElementById("view-sell"), manage: document.getElementById("view-manage"), settings: document.getElementById("view-settings") };
@@ -1398,14 +1426,20 @@
   const ghGistId = document.getElementById("ghGistId");
   const ghStatus = document.getElementById("ghStatus");
   const ghDot = document.getElementById("ghDot");
+  const autoSyncToggle = document.getElementById("autoSyncToggle");
 
   ghToken.value = localStorage.getItem(LS_GH_TOKEN) || "";
   ghGistId.value = localStorage.getItem(LS_GH_GIST) || "";
+  autoSyncToggle.checked = localStorage.getItem(LS_AUTOSYNC) !== "0";
   const lastSync = localStorage.getItem(LS_GH_SYNCED);
   if(lastSync) setStatus("ซิงก์ล่าสุด: " + new Date(lastSync).toLocaleString("th-TH"), "ok");
 
   ghToken.addEventListener("change", ()=> localStorage.setItem(LS_GH_TOKEN, ghToken.value.trim()));
   ghGistId.addEventListener("change", ()=> localStorage.setItem(LS_GH_GIST, ghGistId.value.trim()));
+  autoSyncToggle.addEventListener("change", ()=>{
+    localStorage.setItem(LS_AUTOSYNC, autoSyncToggle.checked ? "1" : "0");
+    if(autoSyncToggle.checked) pullFromGitHub({ auto: true });
+  });
 
   function setStatus(text, kind){
     ghStatus.textContent = text;
@@ -1430,8 +1464,8 @@
     return res.json();
   }
 
-  document.getElementById("ghSaveBtn").addEventListener("click", async ()=>{
-    setStatus("กำลังบันทึก...", "");
+  async function pushToGitHub(){
+    setStatus("กำลังบันทึกขึ้น GitHub...", "");
     try{
       const content = JSON.stringify({ shopName: shopNameInput.value.trim(), menu, categories, updatedAt: new Date().toISOString() }, null, 2);
       const gistId = ghGistId.value.trim();
@@ -1457,35 +1491,60 @@
       }
       const now = new Date().toISOString();
       localStorage.setItem(LS_GH_SYNCED, now);
-      setStatus("บันทึกสำเร็จ • " + new Date(now).toLocaleString("th-TH"), "ok");
+      localStorage.setItem(LS_LOCAL_UPDATED, now);
+      setStatus("ซิงก์ล่าสุด: " + new Date(now).toLocaleString("th-TH"), "ok");
     } catch(err){
       setStatus(err.message || "บันทึกไม่สำเร็จ", "err");
     }
-  });
+  }
+  document.getElementById("ghSaveBtn").addEventListener("click", pushToGitHub);
 
-  document.getElementById("ghLoadBtn").addEventListener("click", async ()=>{
+  async function pullFromGitHub(opts){
+    const auto = !!(opts && opts.auto);
     const gistId = ghGistId.value.trim();
-    if(!gistId){ setStatus("กรุณาใส่ Gist ID ก่อน", "err"); return; }
-    setStatus("กำลังโหลด...", "");
+    if(!gistId){ if(!auto) setStatus("กรุณาใส่ Gist ID ก่อน", "err"); return; }
+    if(!ghToken.value.trim()) return; // nothing to auth with — silently skip on auto
+    if(!auto) setStatus("กำลังโหลด...", "");
     try{
       const data = await ghRequest("https://api.github.com/gists/" + gistId, { method: "GET" });
       const file = data.files && data.files["pos-menu.json"];
       if(!file){ throw new Error("ไม่พบไฟล์ pos-menu.json ใน Gist นี้"); }
       const parsed = JSON.parse(file.content);
-      if(!confirm("โหลดเมนู " + (parsed.menu||[]).length + " รายการจาก GitHub แล้วแทนที่เมนูปัจจุบัน?")) { setStatus("ยกเลิกการโหลด", ""); return; }
+
+      if(auto){
+        const localUpdated = localStorage.getItem(LS_LOCAL_UPDATED) || "";
+        const remoteUpdated = parsed.updatedAt || "";
+        if(!remoteUpdated || (localUpdated && remoteUpdated <= localUpdated)){
+          return; // local is already up to date — nothing to pull
+        }
+      } else {
+        if(!confirm("โหลดเมนู " + (parsed.menu||[]).length + " รายการจาก GitHub แล้วแทนที่เมนูปัจจุบัน?")) { setStatus("ยกเลิกการโหลด", ""); return; }
+      }
+
+      suppressAutoSync = true;
       menu = normalizeMenu(parsed.menu || []);
       categories = parsed.categories || [];
       localStorage.setItem(LS_CATEGORIES, JSON.stringify(categories));
       if(parsed.shopName){ shopNameInput.value = parsed.shopName; localStorage.setItem(LS_SHOP, parsed.shopName); shopTitle.textContent = parsed.shopName; }
       cart = {};
       saveMenu();
+      suppressAutoSync = false;
+
       const now = new Date().toISOString();
       localStorage.setItem(LS_GH_SYNCED, now);
-      setStatus("โหลดสำเร็จ • " + new Date(now).toLocaleString("th-TH"), "ok");
+      localStorage.setItem(LS_LOCAL_UPDATED, parsed.updatedAt || now);
+      setStatus((auto ? "ซิงก์อัตโนมัติ: โหลดข้อมูลล่าสุดแล้ว • " : "โหลดสำเร็จ • ") + new Date(now).toLocaleString("th-TH"), "ok");
     } catch(err){
-      setStatus(err.message || "โหลดไม่สำเร็จ", "err");
+      suppressAutoSync = false;
+      if(!auto) setStatus(err.message || "โหลดไม่สำเร็จ", "err");
     }
-  });
+  }
+  document.getElementById("ghLoadBtn").addEventListener("click", ()=> pullFromGitHub({ auto: false }));
+
+  // Try a silent auto-pull once on startup if auto-sync is on and credentials are set.
+  if(autoSyncToggle.checked && ghToken.value.trim() && ghGistId.value.trim()){
+    pullFromGitHub({ auto: true });
+  }
 
   document.getElementById("resetBtn").addEventListener("click", ()=>{
     if(confirm("ล้างเมนูและหมวดหมู่ทั้งหมดในเครื่องนี้? (ข้อมูลบน GitHub จะไม่ถูกลบ)")){
