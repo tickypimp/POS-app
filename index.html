@@ -530,6 +530,35 @@
     font-weight:800;
     margin-top:2px;
   }
+
+  /* ---------- Receipt preview overlay (mobile save fallback) ---------- */
+  #receiptPreviewOverlay{
+    position:fixed; inset:0; z-index:200;
+    background:rgba(0,0,0,.88);
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    padding-top:calc(24px + var(--safe-top));
+    padding-bottom:calc(24px + var(--safe-bottom));
+  }
+  #receiptPreviewOverlay.show{display:flex;}
+  #receiptPreviewOverlay img{
+    max-width:100%;
+    max-height:62vh;
+    border-radius:12px;
+    box-shadow:0 12px 40px rgba(0,0,0,.6);
+  }
+  #receiptPreviewOverlay .hint{
+    color:#fff;
+    font-size:13px;
+    text-align:center;
+    line-height:1.6;
+    margin-top:16px;
+    max-width:320px;
+  }
+  #receiptPreviewOverlay .hint b{color:var(--accent);}
 </style>
 </head>
 <body>
@@ -721,6 +750,13 @@
     <div class="r-thanks">ขอบคุณที่อุดหนุนค่ะ 🙏</div>
   </div>
 
+</div>
+
+<!-- receipt preview overlay (mobile-safe save fallback) -->
+<div id="receiptPreviewOverlay">
+  <img id="receiptPreviewImg" alt="ใบเสร็จ">
+  <div class="hint">กดค้างที่รูปด้านบน แล้วเลือก <b>"บันทึกรูปภาพ"</b> เพื่อบันทึกลงเครื่อง</div>
+  <button class="btn btn-primary" id="closeReceiptPreviewBtn" style="margin-top:18px; max-width:220px;">ปิด</button>
 </div>
 
 <script>
@@ -1281,7 +1317,37 @@
       const target = document.getElementById("receiptCapture");
       const canvas = await html2canvas(target, { backgroundColor: "#ffffff", scale: 2 });
       const dataUrl = canvas.toDataURL("image/png");
+      await deliverReceiptImage(dataUrl);
+    } catch(err){
+      alert("สร้างรูปภาพไม่สำเร็จ: " + (err.message || err));
+    } finally {
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+    }
+  });
 
+  // Deliver the receipt image in a way that actually works on mobile browsers.
+  // iOS Safari (and many mobile browsers) silently ignore <a download> for data URLs,
+  // so we try the native share sheet first, then always fall back to an on-screen
+  // preview the user can long-press to save — that always works everywhere.
+  async function deliverReceiptImage(dataUrl){
+    let shared = false;
+    if(navigator.share){
+      try{
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "receipt-" + Date.now() + ".png", { type: "image/png" });
+        if(!navigator.canShare || navigator.canShare({ files: [file] })){
+          await navigator.share({ files: [file], title: "ใบเสร็จ" });
+          shared = true;
+        }
+      } catch(shareErr){
+        if(shareErr && shareErr.name === "AbortError") shared = true; // user closed the share sheet on purpose
+      }
+    }
+    if(shared) return;
+
+    try{
       const stamp = new Date().toISOString().replace(/[:.]/g,"-");
       const link = document.createElement("a");
       link.download = "receipt-" + stamp + ".png";
@@ -1289,12 +1355,17 @@
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch(err){
-      alert("สร้างรูปภาพไม่สำเร็จ: " + (err.message || err));
-    } finally {
-      btn.textContent = originalLabel;
-      btn.disabled = false;
-    }
+    } catch(e){ /* ignore — the preview below is the reliable fallback */ }
+
+    showReceiptPreview(dataUrl);
+  }
+
+  function showReceiptPreview(dataUrl){
+    document.getElementById("receiptPreviewImg").src = dataUrl;
+    document.getElementById("receiptPreviewOverlay").classList.add("show");
+  }
+  document.getElementById("closeReceiptPreviewBtn").addEventListener("click", ()=>{
+    document.getElementById("receiptPreviewOverlay").classList.remove("show");
   });
 
   document.getElementById("completeSaleBtn").addEventListener("click", ()=>{
