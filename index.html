@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>POS ร้านค้า</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#12131a;
+    --surface:#1b1d27;
+    --surface-2:#242732;
+    --surface-3:#2e3240;
+    --border:#333748;
+    --text:#eef0f5;
+    --text-dim:#9298ab;
+    --text-faint:#656b7e;
+    --accent:#ffb454;
+    --accent-ink:#3a2600;
+    --mint:#6fe3b4;
+    --mint-ink:#04241a;
+    --danger:#ff6b6b;
+    --radius:14px;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+    box-sizing:border-box;
+  }
+  *{box-sizing:inherit; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Noto Sans Thai', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-top:var(--safe-top);
+    padding-bottom:var(--safe-bottom);
+    overscroll-behavior:none;
+  }
+  #app{
+    max-width:520px;
+    margin:0 auto;
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+  /* ---------- Header ---------- */
+  header{
+    padding:18px 16px 14px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:8px;
+    border-bottom:1px solid var(--border);
+  }
+  header h1{
+    font-size:19px;
+    font-weight:700;
+    letter-spacing:.2px;
+  }
+  header .sub{
+    font-size:12px;
+    color:var(--text-faint);
+  }
+  /* ---------- Views ---------- */
+  main{
+    flex:1;
+    padding:14px 14px 140px;
+    overflow-y:auto;
+  }
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .section-title{
+    font-size:13px;
+    color:var(--text-dim);
+    font-weight:600;
+    margin:18px 2px 10px;
+  }
+  .section-title:first-child{margin-top:2px;}
+
+  /* ---------- Menu grid (Sell view) ---------- */
+  .menu-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .menu-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:12px 12px 10px;
+    color:var(--text);
+    font-family:inherit;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-height:100px;
+    position:relative;
+    transition:border-color .15s ease;
+  }
+  .menu-card.has-qty{border-color:var(--accent);}
+  .menu-card .name{
+    font-size:15px;
+    font-weight:600;
+    line-height:1.3;
+  }
+  .menu-card .price{
+    font-size:14px;
+    color:var(--accent);
+    font-weight:700;
+    flex:1;
+  }
+  .menu-card .card-ctrl{margin-top:auto;}
+  .add-btn{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:9px;
+    padding:9px 0;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:700;
+  }
+  .add-btn:active{background:var(--surface-3);}
+  .add-btn:disabled{opacity:.5;}
+  .card-stepper{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:3px;
+  }
+  .card-stepper button{
+    width:32px; height:32px;
+    border-radius:7px;
+    background:var(--surface-3);
+    border:none;
+    color:var(--text);
+    font-size:17px;
+    font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .card-stepper button.step-plus{background:var(--accent); color:var(--accent-ink);}
+  .card-stepper .n{
+    font-size:15px;
+    font-weight:800;
+    min-width:24px;
+    text-align:center;
+  }
+  .empty-hint{
+    color:var(--text-faint);
+    font-size:13px;
+    padding:30px 6px;
+    text-align:center;
+    line-height:1.6;
+  }
+
+  /* ---------- Category chips ---------- */
+  .cat-chips{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:2px;
+    margin-bottom:14px;
+  }
+  .cat-chip{
+    flex-shrink:0;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    border-radius:999px;
+    padding:7px 14px;
+    font-size:13px;
+    font-weight:600;
+    white-space:nowrap;
+    font-family:inherit;
+  }
+  .cat-chip.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  .cat-manage-wrap{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
+  .cat-manage-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--surface-2); border:1px solid var(--border);
+    border-radius:999px; padding:6px 6px 6px 14px;
+    font-size:13px;
+  }
+  .cat-manage-chip button{
+    background:var(--surface-3); border:none; color:var(--text-dim);
+    width:20px; height:20px; border-radius:50%; font-size:11px;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .group-header{
+    font-size:11.5px; font-weight:700; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:.5px;
+    margin:16px 2px 8px;
+  }
+  .group-header:first-child{margin-top:0;}
+
+  /* ---------- Stock ---------- */
+  .stock-note{font-size:11.5px; color:var(--text-faint); margin-top:2px;}
+  .stock-note.low{color:var(--accent);}
+  .stock-note.out{color:var(--danger); font-weight:700;}
+  .menu-card.out-of-stock{opacity:.5;}
+
+  /* ---------- Cart bar ---------- */
+  .cartbar{
+    position:fixed;
+    left:0; right:0;
+    bottom:calc(64px + var(--safe-bottom));
+    max-width:520px;
+    margin:0 auto;
+    display:none;
+    padding:0 14px;
+  }
+  .cartbar.show{display:block;}
+  .cartbar button{
+    width:100%;
+    background:var(--accent);
+    color:var(--accent-ink);
+    border:none;
+    border-radius:var(--radius);
+    padding:13px 16px;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow:0 6px 20px rgba(0,0,0,.35);
+  }
+  .cartbar .count{
+    background:rgba(0,0,0,.18);
+    border-radius:8px;
+    padding:2px 8px;
+    font-size:12px;
+    margin-right:8px;
+  }
+
+  /* ---------- Bottom nav ---------- */
+  nav.tabs{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    max-width:520px;
+    margin:0 auto;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    display:flex;
+    padding-bottom:var(--safe-bottom);
+  }
+  nav.tabs button{
+    flex:1;
+    background:none;
+    border:none;
+    color:var(--text-faint);
+    font-family:inherit;
+    font-size:11.5px;
+    padding:10px 4px 9px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    font-weight:600;
+  }
+  nav.tabs button .ic{font-size:19px; line-height:1;}
+  nav.tabs button.active{color:var(--accent);}
+
+  /* ---------- Forms ---------- */
+  .field{margin-bottom:12px;}
+  .field label{
+    display:block;
+    font-size:12.5px;
+    color:var(--text-dim);
+    margin-bottom:6px;
+    font-weight:600;
+  }
+  .field input, .field select{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:10px;
+    padding:11px 12px;
+    font-family:inherit;
+    font-size:14.5px;
+  }
+  .field input:focus, .field select:focus{
+    outline:none;
+    border-color:var(--accent);
+  }
+  .row2{display:flex; gap:10px;}
+  .row2 > .field{flex:1;}
+
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    border:none;
+    border-radius:10px;
+    padding:12px 16px;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    width:100%;
+  }
+  .btn-primary{background:var(--accent); color:var(--accent-ink);}
+  .btn-mint{background:var(--mint); color:var(--mint-ink);}
+  .btn-outline{background:none; border:1px solid var(--border); color:var(--text);}
+  .btn-danger{background:none; border:1px solid rgba(255,107,107,.4); color:var(--danger);}
+  .btn-sm{padding:8px 12px; font-size:12.5px; width:auto;}
+
+  /* ---------- Manage list ---------- */
+  .menu-item-row{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:12px 12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .menu-item-row .info{flex:1; min-width:0;}
+  .menu-item-row .name{font-size:14.5px; font-weight:600;}
+  .menu-item-row .price{font-size:13px; color:var(--accent); margin-top:2px;}
+  .icon-btn{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    width:36px; height:36px;
+    border-radius:9px;
+    font-size:15px;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .icon-btn.danger{color:var(--danger);}
+
+  /* ---------- Settings ---------- */
+  .settings-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .settings-card p{
+    font-size:12.5px;
+    color:var(--text-faint);
+    line-height:1.6;
+    margin-bottom:12px;
+  }
+  .status-line{
+    font-size:12.5px;
+    color:var(--text-dim);
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--text-faint);}
+  .dot.ok{background:var(--mint);}
+  .dot.err{background:var(--danger);}
+
+  /* ---------- Modal (cart) ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.55);
+    display:none;
+    z-index:50;
+  }
+  .modal-backdrop.show{display:block;}
+  .sheet{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    max-width:520px;
+    margin:0 auto;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    border-radius:18px 18px 0 0;
+    padding:16px 16px calc(18px + var(--safe-bottom));
+    max-height:85vh;
+    display:flex;
+    flex-direction:column;
+    z-index:51;
+  }
+  .sheet-handle{
+    width:36px; height:4px; background:var(--border);
+    border-radius:2px; margin:0 auto 14px;
+  }
+  .sheet-title{
+    font-size:16px; font-weight:700; margin-bottom:14px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .sheet-title button{
+    background:none; border:none; color:var(--text-faint); font-size:20px;
+  }
+  .cart-list{overflow-y:auto; flex:1; margin-bottom:10px;}
+  .cart-row{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .cart-row .info{flex:1; min-width:0;}
+  .cart-row .name{font-size:14px; font-weight:600;}
+  .cart-row .unit{font-size:12px; color:var(--text-faint); margin-top:2px;}
+  .qty-ctrl{display:flex; align-items:center; gap:8px;}
+  .qty-ctrl button{
+    width:28px; height:28px; border-radius:8px;
+    background:var(--surface-2); border:1px solid var(--border);
+    color:var(--text); font-size:15px; font-weight:700;
+  }
+  .qty-ctrl .n{min-width:18px; text-align:center; font-size:14px; font-weight:700;}
+  .line-total{font-size:14px; font-weight:700; min-width:64px; text-align:right;}
+
+  .totals{
+    border-top:1px solid var(--border);
+    padding-top:12px;
+    margin-bottom:6px;
+  }
+  .totals .r{
+    display:flex; justify-content:space-between;
+    font-size:13.5px; color:var(--text-dim);
+    margin-bottom:6px;
+  }
+  .totals .grand{
+    font-size:20px; font-weight:800; color:var(--accent);
+  }
+  .change-row{
+    display:flex; gap:10px; align-items:center; margin:10px 0 4px;
+  }
+  .change-row input{
+    flex:1;
+    background:var(--surface-2); border:1px solid var(--border);
+    color:var(--text); border-radius:10px; padding:10px 12px;
+    font-family:inherit; font-size:14.5px;
+  }
+  .change-out{
+    font-size:13px; color:var(--text-dim); margin-bottom:12px;
+  }
+  .change-out b{color:var(--mint); font-size:15px;}
+  .sheet-actions{display:flex; gap:10px;}
+
+  ::-webkit-scrollbar{display:none;}
+
+  /* ---------- Receipt (image export) ---------- */
+  #receiptCapture{
+    position:fixed;
+    left:-99999px;
+    top:0;
+    width:360px;
+    background:#ffffff;
+    color:#1a1a1a;
+    font-family:'Noto Sans Thai', system-ui, sans-serif;
+    padding:26px 24px;
+  }
+  #receiptCapture .r-shop{
+    font-size:18px;
+    font-weight:800;
+    text-align:center;
+    margin-bottom:4px;
+  }
+  #receiptCapture .r-time{
+    font-size:12px;
+    text-align:center;
+    color:#666;
+    margin-bottom:14px;
+  }
+  #receiptCapture .r-hr{
+    border-top:1.5px dashed #999;
+    margin:12px 0;
+  }
+  #receiptCapture .r-item{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    font-size:13.5px;
+    padding:5px 0;
+  }
+  #receiptCapture .r-item .r-name{flex:1; min-width:0;}
+  #receiptCapture .r-item .r-qty{color:#666; white-space:nowrap;}
+  #receiptCapture .r-item .r-amt{white-space:nowrap; font-weight:600; text-align:right; min-width:64px;}
+  #receiptCapture .r-line{
+    display:flex;
+    justify-content:space-between;
+    font-size:13.5px;
+    padding:3px 0;
+  }
+  #receiptCapture .r-total{
+    font-size:17px;
+    font-weight:800;
+  }
+  #receiptCapture .r-thanks{
+    text-align:center;
+    font-size:13px;
+    color:#666;
+    margin-top:14px;
+  }
+  #receiptCapture .r-qr-block{
+    text-align:center;
+    padding-top:4px;
+  }
+  #receiptCapture .r-qr-label{
+    font-size:12.5px;
+    font-weight:700;
+    margin-bottom:10px;
+  }
+  #receiptCapture .r-qr-img{
+    width:170px;
+    height:170px;
+    display:block;
+    margin:0 auto;
+  }
+  #receiptCapture .r-qr-id{
+    font-size:12px;
+    color:#444;
+    margin-top:8px;
+    letter-spacing:.3px;
+  }
+  #receiptCapture .r-qr-amt{
+    font-size:14px;
+    font-weight:800;
+    margin-top:2px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div>
+      <h1 id="shopTitle">POS ร้านค้า</h1>
+      <div class="sub" id="itemCountSub">0 รายการเมนู</div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===== SELL VIEW ===== -->
+    <section class="view active" id="view-sell">
+      <div class="section-title">แตะเมนูเพื่อเพิ่มลงตะกร้า</div>
+      <div id="catChips" class="cat-chips"></div>
+      <div id="sellGrid" class="menu-grid"></div>
+    </section>
+
+    <!-- ===== MANAGE VIEW ===== -->
+    <section class="view" id="view-manage">
+      <div class="section-title">หมวดหมู่สินค้า</div>
+      <div id="catManageChips" class="cat-manage-wrap"></div>
+      <div style="display:flex; gap:8px; margin-bottom:4px;">
+        <input id="newCategoryName" type="text" placeholder="ชื่อหมวดหมู่ใหม่" style="flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:11px 12px; font-family:inherit; font-size:14.5px;">
+        <button class="btn btn-primary btn-sm" id="addCategoryBtn" style="width:auto;">+ เพิ่ม</button>
+      </div>
+
+      <div class="section-title">เพิ่มเมนูใหม่</div>
+      <div class="field">
+        <label>ชื่อเมนู</label>
+        <input id="newName" type="text" placeholder="เช่น บลูเบอร์รี่ชีสเค้ก">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>ราคา</label>
+          <input id="newPrice" type="number" inputmode="decimal" placeholder="0">
+        </div>
+        <div class="field">
+          <label>สต็อก (ว่าง = ไม่จำกัด)</label>
+          <input id="newStock" type="number" inputmode="numeric" placeholder="ไม่จำกัด">
+        </div>
+      </div>
+      <div class="field">
+        <label>หมวดหมู่</label>
+        <select id="newCategory"></select>
+      </div>
+      <button class="btn btn-primary" id="addMenuBtn">+ เพิ่มเมนู</button>
+
+      <div class="section-title">รายการเมนูทั้งหมด</div>
+      <div id="manageList"></div>
+    </section>
+
+    <!-- ===== SETTINGS VIEW ===== -->
+    <section class="view" id="view-settings">
+      <div class="section-title">ชื่อร้าน</div>
+      <div class="field">
+        <input id="shopNameInput" type="text" placeholder="ชื่อร้านค้า">
+      </div>
+
+      <div class="section-title">พร้อมเพย์ (QR รับเงิน)</div>
+      <div class="settings-card">
+        <p>ใส่เบอร์พร้อมเพย์หรือเลขบัตรประชาชนเพื่อให้ระบบสร้าง QR ให้อัตโนมัติ (ฝังยอดเงินให้เลย) หรือจะอัปโหลดรูป QR ของคุณเองก็ได้ — ถ้ามีรูปอัปโหลดไว้ ระบบจะใช้รูปนั้นแทนการสร้างอัตโนมัติ ข้อมูลทั้งหมดเก็บไว้ในเครื่องนี้เท่านั้น</p>
+        <div class="field">
+          <label>เบอร์พร้อมเพย์ / เลขบัตรประชาชน (ใช้แสดงเป็นข้อความใต้ QR)</label>
+          <input id="promptpayId" type="text" inputmode="numeric" placeholder="เช่น 0812345678">
+        </div>
+        <div class="field">
+          <label>หรืออัปโหลดรูป QR ของคุณเอง</label>
+          <input id="qrImageInput" type="file" accept="image/*">
+        </div>
+        <div id="qrImagePreviewWrap" style="display:none; align-items:center; gap:12px; margin-top:10px;">
+          <img id="qrImagePreview" style="width:64px; height:64px; object-fit:contain; background:#fff; border-radius:8px; border:1px solid var(--border);">
+          <button class="btn btn-danger btn-sm" id="removeQrImageBtn" style="flex:1;">ลบรูป QR ที่อัปโหลด</button>
+        </div>
+      </div>
+
+      <div class="section-title">ซิงก์เมนูกับ GitHub</div>
+      <div class="settings-card">
+        <p>บันทึกเมนูเป็นไฟล์ JSON บน GitHub Gist ส่วนตัว ใช้ Personal Access Token ที่มีสิทธิ์ <b>gist</b> เท่านั้น เก็บไว้ในเครื่องนี้เครื่องเดียว ไม่ส่งไปที่อื่น</p>
+        <div class="field">
+          <label>GitHub Token (scope: gist)</label>
+          <input id="ghToken" type="password" placeholder="ghp_xxxxxxxxxxxx">
+        </div>
+        <div class="field">
+          <label>Gist ID (เว้นว่างไว้ถ้ายังไม่เคยบันทึก)</label>
+          <input id="ghGistId" type="text" placeholder="จะสร้างให้อัตโนมัติตอนบันทึกครั้งแรก">
+        </div>
+        <div class="row2">
+          <button class="btn btn-primary btn-sm" id="ghSaveBtn" style="flex:1;">⬆ บันทึกขึ้น GitHub</button>
+          <button class="btn btn-outline btn-sm" id="ghLoadBtn" style="flex:1;">⬇ โหลดจาก GitHub</button>
+        </div>
+        <div class="status-line"><span class="dot" id="ghDot"></span><span id="ghStatus">ยังไม่เคยซิงก์</span></div>
+      </div>
+
+      <div class="section-title">ข้อมูล</div>
+      <div class="settings-card">
+        <p>เมนูทั้งหมดถูกบันทึกไว้ในเครื่องนี้อัตโนมัติอยู่แล้ว (localStorage) การบันทึกขึ้น GitHub เป็นการสำรองข้อมูล/ซิงก์ข้ามเครื่อง</p>
+        <button class="btn btn-danger" id="resetBtn">ล้างเมนูทั้งหมดในเครื่องนี้</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- cart bar -->
+  <div class="cartbar" id="cartBar">
+    <button id="openCartBtn">
+      <span><span class="count" id="cartCount">0</span>รายการในตะกร้า</span>
+      <span id="cartTotalBar">฿0</span>
+    </button>
+  </div>
+
+  <!-- bottom nav -->
+  <nav class="tabs">
+    <button class="tab-btn active" data-view="sell"><span class="ic">🧾</span>ขายสินค้า</button>
+    <button class="tab-btn" data-view="manage"><span class="ic">📋</span>จัดการเมนู</button>
+    <button class="tab-btn" data-view="settings"><span class="ic">⚙️</span>ตั้งค่า</button>
+  </nav>
+
+  <!-- cart modal -->
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+  <div class="sheet" id="cartSheet" style="display:none;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">ตะกร้าสินค้า <button id="closeCartBtn">✕</button></div>
+    <div class="cart-list" id="cartList"></div>
+    <div class="totals">
+      <div class="r"><span>จำนวนชิ้น</span><span id="totalQty">0</span></div>
+      <div class="r grand"><span>ยอดรวม</span><span id="grandTotal">฿0</span></div>
+    </div>
+    <div class="change-row">
+      <input id="cashInput" type="number" inputmode="decimal" placeholder="รับเงินมา (บาท)">
+    </div>
+    <div class="change-out" id="changeOut">เงินทอน: <b>฿0</b></div>
+    <button class="btn btn-outline" id="saveImageBtn" style="margin-bottom:10px;">📷 บันทึกเป็นรูปภาพ</button>
+    <div class="sheet-actions">
+      <button class="btn btn-outline" id="clearCartBtn" style="flex:1;">ล้างตะกร้า</button>
+      <button class="btn btn-mint" id="completeSaleBtn" style="flex:2;">✓ เสร็จสิ้นการขาย</button>
+    </div>
+  </div>
+
+  <!-- item edit sheet -->
+  <div class="sheet" id="itemEditSheet" style="display:none;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">แก้ไขเมนู <button id="closeEditBtn">✕</button></div>
+    <div class="field">
+      <label>ชื่อเมนู</label>
+      <input id="editName" type="text">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>ราคา</label>
+        <input id="editPrice" type="number" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>สต็อก (ว่าง = ไม่จำกัด)</label>
+        <input id="editStock" type="number" inputmode="numeric" placeholder="ไม่จำกัด">
+      </div>
+    </div>
+    <div class="field">
+      <label>หมวดหมู่</label>
+      <select id="editCategory"></select>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-danger" id="editDeleteBtn" style="flex:1;">ลบเมนูนี้</button>
+      <button class="btn btn-primary" id="editSaveBtn" style="flex:2;">บันทึก</button>
+    </div>
+  </div>
+
+  <!-- off-screen receipt template used for image export -->
+  <div id="receiptCapture">
+    <div class="r-shop" id="rShop">POS ร้านค้า</div>
+    <div class="r-time" id="rTime"></div>
+    <div class="r-hr"></div>
+    <div id="rItems"></div>
+    <div class="r-hr"></div>
+    <div class="r-line r-total" id="rTotal"></div>
+    <div class="r-line" id="rCashLine"></div>
+    <div class="r-line" id="rChangeLine"></div>
+    <div class="r-qr-block" id="rQrBlock" style="display:none;">
+      <div class="r-hr"></div>
+      <div class="r-qr-label">สแกนจ่ายผ่านพร้อมเพย์</div>
+      <img id="rQrImg" class="r-qr-img" alt="PromptPay QR">
+      <div class="r-qr-id" id="rQrId"></div>
+      <div class="r-qr-amt" id="rQrAmt"></div>
+    </div>
+    <div class="r-hr r-hr-dash"></div>
+    <div class="r-thanks">ขอบคุณที่อุดหนุนค่ะ 🙏</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const LS_MENU = "pos_menu_v1";
+  const LS_SHOP = "pos_shop_name_v1";
+  const LS_CATEGORIES = "pos_categories_v1";
+  const LS_GH_TOKEN = "pos_gh_token_v1";
+  const LS_GH_GIST = "pos_gh_gist_v1";
+  const LS_GH_SYNCED = "pos_gh_last_sync_v1";
+
+  function normalizeMenu(rawMenu){
+    return (rawMenu || []).map(m => ({
+      ...m,
+      category: m.category || "",
+      stock: (typeof m.stock === "number") ? m.stock : null
+    }));
+  }
+
+  let menu = normalizeMenu(JSON.parse(localStorage.getItem(LS_MENU) || "[]"));
+  let categories = JSON.parse(localStorage.getItem(LS_CATEGORIES) || "[]");
+  let cart = {}; // id -> qty
+  let selectedCategory = "ALL";
+  let editingId = null;
+
+  function uid(){ return "m" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function baht(n){ return "฿" + (Math.round(n*100)/100).toLocaleString("th-TH"); }
+  function saveMenu(){ localStorage.setItem(LS_MENU, JSON.stringify(menu)); renderAll(); }
+  function saveCategories(){ localStorage.setItem(LS_CATEGORIES, JSON.stringify(categories)); renderAll(); }
+
+  // ---------- Tabs ----------
+  const views = { sell: document.getElementById("view-sell"), manage: document.getElementById("view-manage"), settings: document.getElementById("view-settings") };
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      Object.values(views).forEach(v=>v.classList.remove("active"));
+      views[btn.dataset.view].classList.add("active");
+    });
+  });
+
+  // ---------- Category chips (sell filter) ----------
+  function renderCatFilterChips(){
+    const wrap = document.getElementById("catChips");
+    if(categories.length === 0){ wrap.innerHTML = ""; return; }
+    const chips = ["ALL", ...categories];
+    wrap.innerHTML = chips.map(c=>{
+      const label = c === "ALL" ? "ทั้งหมด" : c;
+      return `<button class="cat-chip${selectedCategory===c?" active":""}" data-cat="${escapeHtml(c)}">${escapeHtml(label)}</button>`;
+    }).join("");
+    wrap.querySelectorAll(".cat-chip").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        selectedCategory = btn.dataset.cat;
+        renderCatFilterChips();
+        renderSellGrid();
+      });
+    });
+  }
+
+  // ---------- Render: sell grid ----------
+  function renderSellGrid(){
+    const grid = document.getElementById("sellGrid");
+    if(menu.length === 0){
+      grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">ยังไม่มีเมนู<br>ไปที่แท็บ "จัดการเมนู" เพื่อเพิ่มเมนูแรกของคุณ</div>';
+      return;
+    }
+    const filtered = (selectedCategory === "ALL") ? menu : menu.filter(m => (m.category||"") === selectedCategory);
+    if(filtered.length === 0){
+      grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">ไม่มีเมนูในหมวดนี้</div>';
+      return;
+    }
+    grid.innerHTML = filtered.map(item=>{
+      const q = cart[item.id] || 0;
+      const tracked = item.stock !== null && item.stock !== undefined;
+      const outOfStock = tracked && item.stock <= 0;
+      const atMax = tracked && q >= item.stock;
+
+      let stockNote = "";
+      if(tracked){
+        if(item.stock <= 0) stockNote = '<span class="stock-note out">หมดสต็อก</span>';
+        else if(item.stock <= 5) stockNote = `<span class="stock-note low">คงเหลือ ${item.stock}</span>`;
+        else stockNote = `<span class="stock-note">คงเหลือ ${item.stock}</span>`;
+      }
+
+      let ctrlHtml;
+      if(outOfStock && q===0){
+        ctrlHtml = `<button class="add-btn" disabled>หมดสต็อก</button>`;
+      } else if(q>0){
+        ctrlHtml = `<div class="card-stepper">
+          <button class="step-minus" data-id="${item.id}">−</button>
+          <span class="n">${q}</span>
+          <button class="step-plus" data-id="${item.id}" ${atMax?"disabled":""}>+</button>
+        </div>`;
+      } else {
+        ctrlHtml = `<button class="add-btn step-plus" data-id="${item.id}">+ เพิ่ม</button>`;
+      }
+
+      return `<div class="menu-card${q>0 ? " has-qty":""}${outOfStock && q===0 ? " out-of-stock":""}" data-id="${item.id}">
+        <span class="name">${escapeHtml(item.name)}</span>
+        <span class="price">${baht(item.price)}</span>
+        ${stockNote}
+        <div class="card-ctrl">${ctrlHtml}</div>
+      </div>`;
+    }).join("");
+    grid.querySelectorAll(".step-plus").forEach(btn=>{
+      btn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        if(btn.disabled) return;
+        const id = btn.dataset.id;
+        const item = menu.find(m=>m.id===id);
+        const cur = cart[id] || 0;
+        if(item && item.stock !== null && item.stock !== undefined && cur >= item.stock) return;
+        cart[id] = cur + 1;
+        renderAll();
+      });
+    });
+    grid.querySelectorAll(".step-minus").forEach(btn=>{
+      btn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        cart[id] = Math.max(0, (cart[id]||0) - 1);
+        renderAll();
+      });
+    });
+  }
+
+  // ---------- Category select helper ----------
+  function populateCategorySelect(selectEl, selectedValue){
+    const opts = ['<option value="">ไม่ระบุหมวดหมู่</option>'].concat(
+      categories.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+    );
+    selectEl.innerHTML = opts.join("");
+    selectEl.value = selectedValue || "";
+  }
+  function renderCategorySelects(){
+    populateCategorySelect(document.getElementById("newCategory"), document.getElementById("newCategory").value);
+  }
+
+  // ---------- Category management (manage tab) ----------
+  function renderCatManageChips(){
+    const wrap = document.getElementById("catManageChips");
+    if(categories.length === 0){
+      wrap.innerHTML = '<div class="empty-hint" style="padding:6px 0 14px;">ยังไม่มีหมวดหมู่ เพิ่มได้ด้านล่าง</div>';
+      return;
+    }
+    wrap.innerHTML = categories.map(c=>`
+      <span class="cat-manage-chip">${escapeHtml(c)}<button data-cat="${escapeHtml(c)}" title="ลบหมวดหมู่">✕</button></span>
+    `).join("");
+    wrap.querySelectorAll("button").forEach(b=>{
+      b.addEventListener("click", ()=> deleteCategory(b.dataset.cat));
+    });
+  }
+  function deleteCategory(name){
+    if(!confirm(`ลบหมวดหมู่ "${name}" ? (เมนูในหมวดนี้จะกลายเป็น "ไม่ระบุหมวดหมู่")`)) return;
+    categories = categories.filter(c=>c!==name);
+    menu.forEach(m=>{ if(m.category===name) m.category=""; });
+    if(selectedCategory === name) selectedCategory = "ALL";
+    localStorage.setItem(LS_MENU, JSON.stringify(menu));
+    saveCategories();
+  }
+  document.getElementById("addCategoryBtn").addEventListener("click", ()=>{
+    const input = document.getElementById("newCategoryName");
+    const name = input.value.trim();
+    if(name === "") return;
+    if(categories.includes(name)){ alert("มีหมวดหมู่นี้อยู่แล้ว"); return; }
+    categories.push(name);
+    input.value = "";
+    saveCategories();
+  });
+
+  // ---------- Render: manage list ----------
+  function renderManageList(){
+    const list = document.getElementById("manageList");
+    document.getElementById("itemCountSub").textContent = menu.length + " รายการเมนู";
+    if(menu.length === 0){
+      list.innerHTML = '<div class="empty-hint">ยังไม่มีเมนู เพิ่มเมนูแรกด้านบนได้เลย</div>';
+      return;
+    }
+    const groups = [...categories, ""];
+    let html = "";
+    groups.forEach(cat=>{
+      const items = menu.filter(m => (m.category||"") === cat);
+      if(items.length === 0) return;
+      html += `<div class="group-header">${escapeHtml(cat === "" ? "ไม่ระบุหมวดหมู่" : cat)}</div>`;
+      html += items.map(item=>{
+        const stockText = (item.stock===null||item.stock===undefined)
+          ? "ไม่จำกัดสต็อก"
+          : (item.stock<=0 ? "หมดสต็อก" : "คงเหลือ " + item.stock);
+        const stockClass = (item.stock!==null && item.stock!==undefined && item.stock<=0) ? " out" : "";
+        return `
+        <div class="menu-item-row" data-id="${item.id}">
+          <div class="info">
+            <div class="name">${escapeHtml(item.name)}</div>
+            <div class="price">${baht(item.price)}</div>
+            <div class="stock-note${stockClass}">${stockText}</div>
+          </div>
+          <button class="icon-btn edit-btn" title="แก้ไข">✎</button>
+          <button class="icon-btn danger del-btn" title="ลบ">🗑</button>
+        </div>`;
+      }).join("");
+    });
+    list.innerHTML = html;
+    list.querySelectorAll(".edit-btn").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const row = b.closest(".menu-item-row");
+        openEditSheet(row.dataset.id);
+      });
+    });
+    list.querySelectorAll(".del-btn").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const row = b.closest(".menu-item-row");
+        const item = menu.find(m=>m.id===row.dataset.id);
+        if(confirm(`ลบเมนู "${item.name}" ?`)){
+          menu = menu.filter(m=>m.id!==item.id);
+          delete cart[item.id];
+          saveMenu();
+        }
+      });
+    });
+  }
+
+  // ---------- Add menu ----------
+  document.getElementById("addMenuBtn").addEventListener("click", ()=>{
+    const nameInput = document.getElementById("newName");
+    const priceInput = document.getElementById("newPrice");
+    const stockInput = document.getElementById("newStock");
+    const categorySelect = document.getElementById("newCategory");
+    const name = nameInput.value.trim();
+    const price = parseFloat(priceInput.value);
+    const stockRaw = stockInput.value.trim();
+    const stockValid = stockRaw === "" || (!isNaN(parseInt(stockRaw,10)) && parseInt(stockRaw,10) >= 0);
+    if(name === "" || isNaN(price) || price < 0 || !stockValid){
+      alert("กรุณากรอกชื่อเมนู ราคา และสต็อกให้ถูกต้อง");
+      return;
+    }
+    menu.push({
+      id: uid(),
+      name,
+      price,
+      category: categorySelect.value,
+      stock: stockRaw === "" ? null : parseInt(stockRaw,10)
+    });
+    nameInput.value = "";
+    priceInput.value = "";
+    stockInput.value = "";
+    nameInput.focus();
+    saveMenu();
+  });
+
+  // ---------- Item edit sheet ----------
+  const itemEditSheet = document.getElementById("itemEditSheet");
+  function openEditSheet(id){
+    const item = menu.find(m=>m.id===id);
+    if(!item) return;
+    editingId = id;
+    document.getElementById("editName").value = item.name;
+    document.getElementById("editPrice").value = item.price;
+    document.getElementById("editStock").value = (item.stock===null||item.stock===undefined) ? "" : item.stock;
+    populateCategorySelect(document.getElementById("editCategory"), item.category || "");
+    openSheet(itemEditSheet);
+  }
+  document.getElementById("closeEditBtn").addEventListener("click", closeSheet);
+  document.getElementById("editSaveBtn").addEventListener("click", ()=>{
+    const item = menu.find(m=>m.id===editingId);
+    if(!item) return;
+    const name = document.getElementById("editName").value.trim();
+    const price = parseFloat(document.getElementById("editPrice").value);
+    const stockRaw = document.getElementById("editStock").value.trim();
+    const stockValid = stockRaw === "" || (!isNaN(parseInt(stockRaw,10)) && parseInt(stockRaw,10) >= 0);
+    if(name === "" || isNaN(price) || price < 0 || !stockValid){
+      alert("ข้อมูลไม่ถูกต้อง");
+      return;
+    }
+    item.name = name;
+    item.price = price;
+    item.stock = stockRaw === "" ? null : parseInt(stockRaw,10);
+    item.category = document.getElementById("editCategory").value;
+    saveMenu();
+    closeSheet();
+  });
+  document.getElementById("editDeleteBtn").addEventListener("click", ()=>{
+    const item = menu.find(m=>m.id===editingId);
+    if(!item) return;
+    if(confirm(`ลบเมนู "${item.name}" ?`)){
+      menu = menu.filter(m=>m.id!==item.id);
+      delete cart[item.id];
+      saveMenu();
+      closeSheet();
+    }
+  });
+
+  // ---------- Cart bar / modal ----------
+  const cartBar = document.getElementById("cartBar");
+  const modalBackdrop = document.getElementById("modalBackdrop");
+  const cartSheet = document.getElementById("cartSheet");
+  let activeSheet = null;
+
+  function openSheet(el){
+    modalBackdrop.classList.add("show");
+    el.style.display = "flex";
+    activeSheet = el;
+  }
+  function closeSheet(){
+    if(activeSheet){ activeSheet.style.display = "none"; activeSheet = null; }
+    modalBackdrop.classList.remove("show");
+  }
+  modalBackdrop.addEventListener("click", closeSheet);
+
+  function cartEntries(){
+    return Object.entries(cart).filter(([,q])=>q>0).map(([id,q])=>{
+      const item = menu.find(m=>m.id===id);
+      return item ? {item, qty:q} : null;
+    }).filter(Boolean);
+  }
+
+  function renderCart(){
+    const entries = cartEntries();
+    const totalQty = entries.reduce((s,e)=>s+e.qty,0);
+    const grand = entries.reduce((s,e)=>s+e.qty*e.item.price,0);
+
+    if(totalQty>0){
+      cartBar.classList.add("show");
+      document.getElementById("cartCount").textContent = totalQty;
+      document.getElementById("cartTotalBar").textContent = baht(grand);
+    } else {
+      cartBar.classList.remove("show");
+    }
+
+    document.getElementById("totalQty").textContent = totalQty;
+    document.getElementById("grandTotal").textContent = baht(grand);
+
+    const list = document.getElementById("cartList");
+    if(entries.length===0){
+      list.innerHTML = '<div class="empty-hint">ตะกร้าว่าง</div>';
+    } else {
+      list.innerHTML = entries.map(({item,qty})=>`
+        <div class="cart-row" data-id="${item.id}">
+          <div class="info">
+            <div class="name">${escapeHtml(item.name)}</div>
+            <div class="unit">${baht(item.price)} / ชิ้น</div>
+          </div>
+          <div class="qty-ctrl">
+            <button class="minus">−</button>
+            <span class="n">${qty}</span>
+            <button class="plus">+</button>
+          </div>
+          <div class="line-total">${baht(item.price*qty)}</div>
+        </div>
+      `).join("");
+      list.querySelectorAll(".minus").forEach(b=>b.addEventListener("click", ()=>{
+        const id = b.closest(".cart-row").dataset.id;
+        cart[id] = Math.max(0, (cart[id]||0)-1);
+        renderAll();
+      }));
+      list.querySelectorAll(".plus").forEach(b=>b.addEventListener("click", ()=>{
+        const id = b.closest(".cart-row").dataset.id;
+        cart[id] = (cart[id]||0)+1;
+        renderAll();
+      }));
+    }
+    updateChange();
+  }
+
+  function updateChange(){
+    const grand = cartEntries().reduce((s,e)=>s+e.qty*e.item.price,0);
+    const cash = parseFloat(document.getElementById("cashInput").value);
+    const out = document.getElementById("changeOut");
+    if(isNaN(cash)){
+      out.innerHTML = 'เงินทอน: <b>฿0</b>';
+      return;
+    }
+    const diff = cash - grand;
+    out.innerHTML = diff >= 0
+      ? `เงินทอน: <b>${baht(diff)}</b>`
+      : `ยังขาดอีก: <b style="color:var(--danger)">${baht(-diff)}</b>`;
+  }
+  document.getElementById("cashInput").addEventListener("input", updateChange);
+
+  function openCart(){ openSheet(cartSheet); }
+  document.getElementById("openCartBtn").addEventListener("click", openCart);
+  document.getElementById("closeCartBtn").addEventListener("click", closeSheet);
+
+  document.getElementById("clearCartBtn").addEventListener("click", ()=>{
+    if(cartEntries().length===0) return;
+    if(confirm("ล้างตะกร้าทั้งหมด?")){
+      cart = {};
+      document.getElementById("cashInput").value = "";
+      renderAll();
+    }
+  });
+
+  // ---------- PromptPay QR payload (EMV QRCPS Merchant Presented Mode) ----------
+  function crc16ccitt(str){
+    let crc = 0xFFFF;
+    for(let i=0;i<str.length;i++){
+      crc ^= (str.charCodeAt(i) << 8);
+      for(let j=0;j<8;j++){
+        crc = (crc & 0x8000) ? ((crc<<1) ^ 0x1021) & 0xFFFF : (crc<<1) & 0xFFFF;
+      }
+    }
+    return crc;
+  }
+  function ppField(id, value){ return id + ("00"+String(value.length)).slice(-2) + value; }
+  function ppSerialize(xs){ return xs.filter(Boolean).join(""); }
+  function ppSanitize(id){ return String(id).replace(/[^0-9]/g, ""); }
+  function ppFormatTarget(id){
+    const numbers = ppSanitize(id);
+    if(numbers.length >= 13) return numbers;
+    return ("0000000000000" + numbers.replace(/^0/, "66")).slice(-13);
+  }
+  function generatePromptPayPayload(target, amount){
+    const sanitized = ppSanitize(target);
+    const targetType = sanitized.length >= 15 ? "03" : sanitized.length >= 13 ? "02" : "01";
+    const data = [
+      ppField("00","01"),
+      ppField("01", amount ? "12" : "11"),
+      ppField("29", ppSerialize([
+        ppField("00","A000000677010111"),
+        ppField(targetType, ppFormatTarget(target))
+      ])),
+      ppField("58","TH"),
+      ppField("53","764"),
+      amount ? ppField("54", Number(amount).toFixed(2)) : ""
+    ];
+    const dataToCrc = ppSerialize(data) + "6304";
+    const crcHex = ("0000" + crc16ccitt(dataToCrc).toString(16).toUpperCase()).slice(-4);
+    data.push(ppField("63", crcHex));
+    return ppSerialize(data);
+  }
+
+  // ---------- PromptPay ID setting ----------
+  const LS_PROMPTPAY = "pos_promptpay_id_v1";
+  const promptpayInput = document.getElementById("promptpayId");
+  promptpayInput.value = localStorage.getItem(LS_PROMPTPAY) || "";
+  promptpayInput.addEventListener("input", ()=> localStorage.setItem(LS_PROMPTPAY, promptpayInput.value.trim()));
+
+  // ---------- Custom uploaded QR image ----------
+  const LS_QR_IMAGE = "pos_qr_image_v1";
+  const qrImageInput = document.getElementById("qrImageInput");
+  const qrImagePreviewWrap = document.getElementById("qrImagePreviewWrap");
+  const qrImagePreview = document.getElementById("qrImagePreview");
+
+  function refreshQrImagePreview(){
+    const saved = localStorage.getItem(LS_QR_IMAGE);
+    if(saved){
+      qrImagePreview.src = saved;
+      qrImagePreviewWrap.style.display = "flex";
+    } else {
+      qrImagePreviewWrap.style.display = "none";
+    }
+  }
+  refreshQrImagePreview();
+
+  qrImageInput.addEventListener("change", ()=>{
+    const file = qrImageInput.files && qrImageInput.files[0];
+    if(!file) return;
+    if(file.size > 3 * 1024 * 1024){
+      alert("ไฟล์รูปใหญ่เกินไป กรุณาเลือกรูปที่เล็กกว่า 3MB");
+      qrImageInput.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        localStorage.setItem(LS_QR_IMAGE, reader.result);
+        refreshQrImagePreview();
+      } catch(e){
+        alert("บันทึกรูปไม่สำเร็จ (พื้นที่จัดเก็บในเครื่องเต็ม) ลองใช้รูปที่เล็กลง");
+      }
+      qrImageInput.value = "";
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById("removeQrImageBtn").addEventListener("click", ()=>{
+    localStorage.removeItem(LS_QR_IMAGE);
+    refreshQrImagePreview();
+  });
+
+  document.getElementById("saveImageBtn").addEventListener("click", async ()=>{
+    const entries = cartEntries();
+    if(entries.length===0){ alert("ตะกร้าว่าง ไม่มีอะไรให้บันทึกเป็นรูป"); return; }
+    if(typeof html2canvas === "undefined"){
+      alert("โหลดตัวช่วยสร้างรูปภาพไม่สำเร็จ (ต้องมีอินเทอร์เน็ตตอนเปิดหน้านี้ครั้งแรก) ลองเปิดใหม่แล้วลองอีกครั้ง");
+      return;
+    }
+    const btn = document.getElementById("saveImageBtn");
+    const originalLabel = btn.textContent;
+    btn.textContent = "กำลังสร้างรูป...";
+    btn.disabled = true;
+    try{
+      const grand = entries.reduce((s,e)=>s+e.qty*e.item.price,0);
+      const cash = parseFloat(document.getElementById("cashInput").value);
+
+      document.getElementById("rShop").textContent = shopNameInput.value.trim() || "POS ร้านค้า";
+      document.getElementById("rTime").textContent = new Date().toLocaleString("th-TH", { dateStyle:"medium", timeStyle:"short" });
+      document.getElementById("rItems").innerHTML = entries.map(({item,qty})=>`
+        <div class="r-item">
+          <span class="r-name">${escapeHtml(item.name)}</span>
+          <span class="r-qty">x${qty}</span>
+          <span class="r-amt">${baht(item.price*qty)}</span>
+        </div>
+      `).join("");
+      document.getElementById("rTotal").innerHTML = `<span>ยอดรวม</span><span>${baht(grand)}</span>`;
+
+      const cashLine = document.getElementById("rCashLine");
+      const changeLine = document.getElementById("rChangeLine");
+      if(!isNaN(cash)){
+        cashLine.style.display = "flex";
+        cashLine.innerHTML = `<span>รับเงิน</span><span>${baht(cash)}</span>`;
+        const diff = cash - grand;
+        changeLine.style.display = "flex";
+        changeLine.innerHTML = diff >= 0
+          ? `<span>เงินทอน</span><span>${baht(diff)}</span>`
+          : `<span>ขาดอีก</span><span>${baht(-diff)}</span>`;
+      } else {
+        cashLine.style.display = "none";
+        changeLine.style.display = "none";
+      }
+
+      const qrBlock = document.getElementById("rQrBlock");
+      const promptpayId = promptpayInput.value.trim();
+      const customQr = localStorage.getItem(LS_QR_IMAGE);
+      const qrImg = document.getElementById("rQrImg");
+
+      if(customQr){
+        await new Promise((resolve)=>{
+          qrImg.onload = resolve;
+          qrImg.onerror = resolve;
+          qrImg.src = customQr;
+        });
+        document.getElementById("rQrId").textContent = promptpayId ? ("พร้อมเพย์: " + promptpayId) : "สแกนจ่ายด้วย QR ด้านบน";
+        document.getElementById("rQrAmt").textContent = "ยอดชำระ " + baht(grand);
+        qrBlock.style.display = "block";
+      } else if(promptpayId && typeof qrcode !== "undefined"){
+        try{
+          const payload = generatePromptPayPayload(promptpayId, grand);
+          const qr = qrcode(0, "M");
+          qr.addData(payload);
+          qr.make();
+          await new Promise((resolve)=>{
+            qrImg.onload = resolve;
+            qrImg.onerror = resolve;
+            qrImg.src = qr.createDataURL(6, 4);
+          });
+          document.getElementById("rQrId").textContent = "พร้อมเพย์: " + promptpayId;
+          document.getElementById("rQrAmt").textContent = "ยอดชำระ " + baht(grand);
+          qrBlock.style.display = "block";
+        } catch(qrErr){
+          qrBlock.style.display = "none";
+        }
+      } else {
+        qrBlock.style.display = "none";
+      }
+
+      const target = document.getElementById("receiptCapture");
+      const canvas = await html2canvas(target, { backgroundColor: "#ffffff", scale: 2 });
+      const dataUrl = canvas.toDataURL("image/png");
+
+      const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+      const link = document.createElement("a");
+      link.download = "receipt-" + stamp + ".png";
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch(err){
+      alert("สร้างรูปภาพไม่สำเร็จ: " + (err.message || err));
+    } finally {
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("completeSaleBtn").addEventListener("click", ()=>{
+    const entries = cartEntries();
+    if(entries.length===0){ alert("ตะกร้าว่าง"); return; }
+    entries.forEach(({item,qty})=>{
+      if(item.stock !== null && item.stock !== undefined){
+        item.stock = Math.max(0, item.stock - qty);
+      }
+    });
+    cart = {};
+    document.getElementById("cashInput").value = "";
+    saveMenu();
+    closeSheet();
+  });
+
+  // ---------- Shop name ----------
+  const shopNameInput = document.getElementById("shopNameInput");
+  const shopTitle = document.getElementById("shopTitle");
+  shopNameInput.value = localStorage.getItem(LS_SHOP) || "";
+  if(shopNameInput.value) shopTitle.textContent = shopNameInput.value;
+  shopNameInput.addEventListener("input", ()=>{
+    const v = shopNameInput.value.trim();
+    localStorage.setItem(LS_SHOP, v);
+    shopTitle.textContent = v || "POS ร้านค้า";
+  });
+
+  // ---------- GitHub Gist sync ----------
+  const ghToken = document.getElementById("ghToken");
+  const ghGistId = document.getElementById("ghGistId");
+  const ghStatus = document.getElementById("ghStatus");
+  const ghDot = document.getElementById("ghDot");
+
+  ghToken.value = localStorage.getItem(LS_GH_TOKEN) || "";
+  ghGistId.value = localStorage.getItem(LS_GH_GIST) || "";
+  const lastSync = localStorage.getItem(LS_GH_SYNCED);
+  if(lastSync) setStatus("ซิงก์ล่าสุด: " + new Date(lastSync).toLocaleString("th-TH"), "ok");
+
+  ghToken.addEventListener("change", ()=> localStorage.setItem(LS_GH_TOKEN, ghToken.value.trim()));
+  ghGistId.addEventListener("change", ()=> localStorage.setItem(LS_GH_GIST, ghGistId.value.trim()));
+
+  function setStatus(text, kind){
+    ghStatus.textContent = text;
+    ghDot.className = "dot" + (kind ? " " + kind : "");
+  }
+
+  async function ghRequest(url, options){
+    const token = ghToken.value.trim();
+    if(!token){ throw new Error("กรุณาใส่ GitHub Token ก่อน"); }
+    const res = await fetch(url, {
+      ...options,
+      headers:{
+        "Authorization": "token " + token,
+        "Accept": "application/vnd.github+json",
+        ...(options && options.headers ? options.headers : {})
+      }
+    });
+    if(!res.ok){
+      const body = await res.text().catch(()=> "");
+      throw new Error("GitHub API error " + res.status + (body ? (": " + body.slice(0,200)) : ""));
+    }
+    return res.json();
+  }
+
+  document.getElementById("ghSaveBtn").addEventListener("click", async ()=>{
+    setStatus("กำลังบันทึก...", "");
+    try{
+      const content = JSON.stringify({ shopName: shopNameInput.value.trim(), menu, categories, updatedAt: new Date().toISOString() }, null, 2);
+      const gistId = ghGistId.value.trim();
+      let data;
+      if(gistId){
+        data = await ghRequest("https://api.github.com/gists/" + gistId, {
+          method: "PATCH",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ files: { "pos-menu.json": { content } } })
+        });
+      } else {
+        data = await ghRequest("https://api.github.com/gists", {
+          method: "POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({
+            description: "POS menu data",
+            public: false,
+            files: { "pos-menu.json": { content } }
+          })
+        });
+        ghGistId.value = data.id;
+        localStorage.setItem(LS_GH_GIST, data.id);
+      }
+      const now = new Date().toISOString();
+      localStorage.setItem(LS_GH_SYNCED, now);
+      setStatus("บันทึกสำเร็จ • " + new Date(now).toLocaleString("th-TH"), "ok");
+    } catch(err){
+      setStatus(err.message || "บันทึกไม่สำเร็จ", "err");
+    }
+  });
+
+  document.getElementById("ghLoadBtn").addEventListener("click", async ()=>{
+    const gistId = ghGistId.value.trim();
+    if(!gistId){ setStatus("กรุณาใส่ Gist ID ก่อน", "err"); return; }
+    setStatus("กำลังโหลด...", "");
+    try{
+      const data = await ghRequest("https://api.github.com/gists/" + gistId, { method: "GET" });
+      const file = data.files && data.files["pos-menu.json"];
+      if(!file){ throw new Error("ไม่พบไฟล์ pos-menu.json ใน Gist นี้"); }
+      const parsed = JSON.parse(file.content);
+      if(!confirm("โหลดเมนู " + (parsed.menu||[]).length + " รายการจาก GitHub แล้วแทนที่เมนูปัจจุบัน?")) { setStatus("ยกเลิกการโหลด", ""); return; }
+      menu = normalizeMenu(parsed.menu || []);
+      categories = parsed.categories || [];
+      localStorage.setItem(LS_CATEGORIES, JSON.stringify(categories));
+      if(parsed.shopName){ shopNameInput.value = parsed.shopName; localStorage.setItem(LS_SHOP, parsed.shopName); shopTitle.textContent = parsed.shopName; }
+      cart = {};
+      saveMenu();
+      const now = new Date().toISOString();
+      localStorage.setItem(LS_GH_SYNCED, now);
+      setStatus("โหลดสำเร็จ • " + new Date(now).toLocaleString("th-TH"), "ok");
+    } catch(err){
+      setStatus(err.message || "โหลดไม่สำเร็จ", "err");
+    }
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", ()=>{
+    if(confirm("ล้างเมนูและหมวดหมู่ทั้งหมดในเครื่องนี้? (ข้อมูลบน GitHub จะไม่ถูกลบ)")){
+      menu = [];
+      categories = [];
+      selectedCategory = "ALL";
+      cart = {};
+      localStorage.setItem(LS_CATEGORIES, JSON.stringify(categories));
+      saveMenu();
+    }
+  });
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function renderAll(){
+    renderCatFilterChips();
+    renderCategorySelects();
+    renderSellGrid();
+    renderCatManageChips();
+    renderManageList();
+    renderCart();
+  }
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
