@@ -651,6 +651,7 @@
     <!-- ===== SUMMARY VIEW (shareable menu board) ===== -->
     <section class="view" id="view-summary">
       <div class="section-title">สรุปเมนูที่พร้อมขาย — แคปส่งลูกค้าได้เลย</div>
+      <button class="btn btn-outline" id="saveMenuBoardBtn" style="margin-bottom:14px;">📷 บันทึกเป็นรูปภาพ</button>
       <div id="summaryBoard" class="menu-board">
         <div class="mb-header">
           <div class="mb-shop" id="mbShop">เมนูร้านค้า</div>
@@ -1131,6 +1132,28 @@
     wrap.innerHTML = html;
   }
 
+  document.getElementById("saveMenuBoardBtn").addEventListener("click", async ()=>{
+    const btn = document.getElementById("saveMenuBoardBtn");
+    const original = btn.textContent;
+    if(typeof html2canvas === "undefined"){
+      alert("โหลดตัวช่วยสร้างรูปภาพไม่สำเร็จ (ต้องมีอินเทอร์เน็ตตอนเปิดหน้านี้ครั้งแรก) ลองเปิดใหม่แล้วลองอีกครั้ง");
+      return;
+    }
+    btn.textContent = "กำลังสร้างรูป...";
+    btn.disabled = true;
+    try{
+      const target = document.getElementById("summaryBoard");
+      const canvas = await html2canvas(target, { backgroundColor: "#fffaf2", scale: 2 });
+      const dataUrl = canvas.toDataURL("image/png");
+      await deliverReceiptImage(dataUrl, { filePrefix: "menu-summary", title: "เมนูที่พร้อมขาย" });
+    } catch(err){
+      alert("สร้างรูปภาพไม่สำเร็จ: " + (err.message || err));
+    } finally {
+      btn.textContent = original;
+      btn.disabled = false;
+    }
+  });
+
   // ---------- Add menu ----------
   document.getElementById("addMenuBtn").addEventListener("click", ()=>{
     const nameInput = document.getElementById("newName");
@@ -1481,15 +1504,17 @@
   // iOS Safari (and many mobile browsers) silently ignore <a download> for data URLs,
   // so we try the native share sheet first, then always fall back to an on-screen
   // preview the user can long-press to save — that always works everywhere.
-  async function deliverReceiptImage(dataUrl){
+  async function deliverReceiptImage(dataUrl, opts){
+    const filePrefix = (opts && opts.filePrefix) || "receipt";
+    const shareTitle = (opts && opts.title) || "ใบเสร็จ";
     let shared = false;
     if(navigator.share){
       try{
         const res = await fetch(dataUrl);
         const blob = await res.blob();
-        const file = new File([blob], "receipt-" + Date.now() + ".png", { type: "image/png" });
+        const file = new File([blob], filePrefix + "-" + Date.now() + ".png", { type: "image/png" });
         if(!navigator.canShare || navigator.canShare({ files: [file] })){
-          await navigator.share({ files: [file], title: "ใบเสร็จ" });
+          await navigator.share({ files: [file], title: shareTitle });
           shared = true;
         }
       } catch(shareErr){
@@ -1501,7 +1526,7 @@
     try{
       const stamp = new Date().toISOString().replace(/[:.]/g,"-");
       const link = document.createElement("a");
-      link.download = "receipt-" + stamp + ".png";
+      link.download = filePrefix + "-" + stamp + ".png";
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
