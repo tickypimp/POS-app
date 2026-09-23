@@ -577,6 +577,7 @@
     <section class="view active" id="view-sell">
       <div class="section-title">แตะเมนูเพื่อเพิ่มลงตะกร้า</div>
       <div id="catChips" class="cat-chips"></div>
+      <div id="stockChips" class="cat-chips"></div>
       <div id="sellGrid" class="menu-grid"></div>
     </section>
 
@@ -611,6 +612,7 @@
       <button class="btn btn-primary" id="addMenuBtn">+ เพิ่มเมนู</button>
 
       <div class="section-title">รายการเมนูทั้งหมด</div>
+      <div id="stockChipsManage" class="cat-chips"></div>
       <div id="manageList"></div>
     </section>
 
@@ -788,6 +790,7 @@
   let categories = JSON.parse(localStorage.getItem(LS_CATEGORIES) || "[]");
   let cart = {}; // id -> qty
   let selectedCategory = "ALL";
+  let stockFilter = "ALL"; // "ALL" | "IN" | "OUT"
   let editingId = null;
 
   let suppressAutoSync = false;
@@ -828,6 +831,36 @@
     });
   });
 
+  // ---------- Stock filter (in stock / out of stock) ----------
+  const STOCK_FILTERS = [
+    { key: "ALL", label: "ทั้งหมด" },
+    { key: "IN", label: "มีสต็อก" },
+    { key: "OUT", label: "หมดสต็อก" }
+  ];
+  function matchesStockFilter(item){
+    if(stockFilter === "ALL") return true;
+    const tracked = item.stock !== null && item.stock !== undefined;
+    if(stockFilter === "OUT") return tracked && item.stock <= 0;
+    return !tracked || item.stock > 0; // "IN"
+  }
+  function renderStockChipsInto(containerId){
+    const wrap = document.getElementById(containerId);
+    if(!wrap) return;
+    wrap.innerHTML = STOCK_FILTERS.map(f=>
+      `<button class="cat-chip${stockFilter===f.key?" active":""}" data-stock="${f.key}">${f.label}</button>`
+    ).join("");
+    wrap.querySelectorAll(".cat-chip").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        stockFilter = btn.dataset.stock;
+        renderAll();
+      });
+    });
+  }
+  function renderStockChips(){
+    renderStockChipsInto("stockChips");
+    renderStockChipsInto("stockChipsManage");
+  }
+
   // ---------- Category chips (sell filter) ----------
   function renderCatFilterChips(){
     const wrap = document.getElementById("catChips");
@@ -853,9 +886,12 @@
       grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">ยังไม่มีเมนู<br>ไปที่แท็บ "จัดการเมนู" เพื่อเพิ่มเมนูแรกของคุณ</div>';
       return;
     }
-    const filtered = (selectedCategory === "ALL") ? menu : menu.filter(m => (m.category||"") === selectedCategory);
+    const filtered = menu.filter(m =>
+      (selectedCategory === "ALL" || (m.category||"") === selectedCategory) &&
+      matchesStockFilter(m)
+    );
     if(filtered.length === 0){
-      grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">ไม่มีเมนูในหมวดนี้</div>';
+      grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">ไม่มีเมนูตรงกับตัวกรองนี้</div>';
       return;
     }
     grid.innerHTML = filtered.map(item=>{
@@ -967,9 +1003,11 @@
     }
     const groups = [...categories, ""];
     let html = "";
+    let anyShown = false;
     groups.forEach(cat=>{
-      const items = menu.filter(m => (m.category||"") === cat);
+      const items = menu.filter(m => (m.category||"") === cat && matchesStockFilter(m));
       if(items.length === 0) return;
+      anyShown = true;
       html += `<div class="group-header">${escapeHtml(cat === "" ? "ไม่ระบุหมวดหมู่" : cat)}</div>`;
       html += items.map(item=>{
         const stockText = (item.stock===null||item.stock===undefined)
@@ -988,6 +1026,10 @@
         </div>`;
       }).join("");
     });
+    if(!anyShown){
+      list.innerHTML = '<div class="empty-hint">ไม่มีเมนูตรงกับตัวกรองนี้</div>';
+      return;
+    }
     list.innerHTML = html;
     list.querySelectorAll(".edit-btn").forEach(b=>{
       b.addEventListener("click", ()=>{
@@ -1563,6 +1605,7 @@
 
   function renderAll(){
     renderCatFilterChips();
+    renderStockChips();
     renderCategorySelects();
     renderSellGrid();
     renderCatManageChips();
